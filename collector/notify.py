@@ -33,11 +33,13 @@ def match_rules(item, rules):
         categories = cond.get("category")
         if categories and item.get("category") not in categories:
             continue
+        title = item.get("title") or ""
         contains = cond.get("title_contains")
-        if contains:
-            title = item.get("title") or ""
-            if not any(word in title for word in contains):
-                continue
+        if contains and not any(word in title for word in contains):
+            continue
+        not_contains = cond.get("title_not_contains")
+        if not_contains and any(word in title for word in not_contains):
+            continue
         return True
     return False
 
@@ -75,6 +77,13 @@ def _to_embed(item):
     lines = ["**{}**".format(subject)]
     if item.get("filer"):
         lines.append("提出者: {}".format(item["filer"]))
+    ratio = item.get("ratio")
+    if ratio is not None:
+        prev = item.get("prev_ratio")
+        if prev is not None:
+            lines.append("保有割合: {:.2f}% (前回 {:.2f}%)".format(ratio, prev))
+        else:
+            lines.append("保有割合: {:.2f}% (新規)".format(ratio))
     published = item.get("published_at") or ""
     if published:
         lines.append("提出時刻: {}".format(published[11:16] or published))
