@@ -9,6 +9,7 @@
 import argparse
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 
 import yaml
@@ -67,7 +68,22 @@ def main():
         print("{}: 大量保有府令 {}件".format(day.isoformat(), len(day_items)))
         fetched.extend(day_items)
 
-    new_items = normalize.append_new_items(fetched)
+    new_items = normalize.filter_new_items(fetched)
+
+    # 新着分だけXBRL(CSV版)から株券等保有割合を取得(既知の書類には触らない)
+    for item in new_items:
+        doc_id = (item.get("raw") or {}).get("docID")
+        if not doc_id:
+            continue
+        try:
+            ratio, prev = edinet.fetch_holding_ratios(doc_id, api_key)
+            item["ratio"] = ratio
+            item["prev_ratio"] = prev
+        except Exception as e:
+            print("[warn] 保有割合の取得に失敗 {}: {}".format(doc_id, e))
+        time.sleep(0.3)  # 書類取得APIへの連続アクセスを抑える
+
+    normalize.append_items(new_items)
     print("新規追記: {}件".format(len(new_items)))
 
     rules = notify.load_rules()

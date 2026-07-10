@@ -29,8 +29,8 @@ def load_month(month):
     return items
 
 
-def append_new_items(items):
-    """既存JSONLに無いidのアイテムだけ追記し、追記したアイテムのリストを返す。"""
+def filter_new_items(items):
+    """既存JSONLに無いidのアイテムだけを(published_at昇順で)返す。書き込みはしない。"""
     months = sorted(set(_month_of(i) for i in items))
     known_ids = set()
     for month in months:
@@ -45,14 +45,18 @@ def append_new_items(items):
             continue
         seen.add(item_id)
         new_items.append(item)
-
-    if new_items:
-        os.makedirs(ITEMS_DIR, exist_ok=True)
-        by_month = {}
-        for item in new_items:
-            by_month.setdefault(_month_of(item), []).append(item)
-        for month, month_items in by_month.items():
-            with open(_month_path(month), "a", encoding="utf-8") as f:
-                for item in month_items:
-                    f.write(json.dumps(item, ensure_ascii=False) + "\n")
     return new_items
+
+
+def append_items(items):
+    """アイテムを月別JSONLに追記する(重複チェックはfilter_new_items側で済ませておく)。"""
+    if not items:
+        return
+    os.makedirs(ITEMS_DIR, exist_ok=True)
+    by_month = {}
+    for item in items:
+        by_month.setdefault(_month_of(item), []).append(item)
+    for month, month_items in by_month.items():
+        with open(_month_path(month), "a", encoding="utf-8") as f:
+            for item in month_items:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")

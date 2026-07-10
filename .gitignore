@@ -1,5 +1,7 @@
 .env
 .venv/
+data/edinet_codes.csv
+data/edinet_codes.meta.json
 __pycache__/
 *.pyc
 *.sqlite3

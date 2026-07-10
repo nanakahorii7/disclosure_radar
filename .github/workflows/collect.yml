@@ -29,8 +29,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
       - name: 依存インストール
         run: pip install --quiet -r requirements.txt
+      - name: キャッシュキー用の週番号を取得
+        id: week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      - name: EDINETコード一覧をキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/edinet_codes.csv
+            data/edinet_codes.meta.json
+          key: edinet-codes-${{ steps.week.outputs.week }}
+          restore-keys: |
+            edinet-codes-
       - name: 収集・通知
         env:
           EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
