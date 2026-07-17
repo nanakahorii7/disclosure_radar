@@ -75,3 +75,18 @@ def test_large_holding_rule_still_matches():
         "prev_ratio": None,
     }
     assert notify.find_matching_rule(item, RULES) is NEW_RULE
+
+
+def test_embed_uses_rule_display_override():
+    item = _change_report(3.76, 5.06)
+    item.update({"code": "2432", "company": u"ディー・エヌ・エー", "filer": u"テスト"})
+    embed = notify._to_embed(item, EXIT_RULE)
+    assert embed["title"].startswith(u"\U0001F4C9 売り抜け | ")
+    assert embed["color"] == 0xD32F2F
+    assert u"保有割合: 3.76% (前回 5.06%)" in embed["description"]
+
+
+def test_embed_without_rule_keeps_category_default():
+    item = _change_report(3.76, 5.06)
+    embed = notify._to_embed(item)
+    assert embed["title"].startswith(u"\U0001F504 変更報告書 | ")

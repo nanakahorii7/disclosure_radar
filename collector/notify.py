@@ -57,17 +57,17 @@ def _match_one(item, cond):
     return True
 
 
-def send_discord(items, webhook_url):
-    """新着アイテムをDiscordに通知する。上限を超える分は件数だけ知らせる。"""
-    if not items:
+def send_discord(matched, webhook_url):
+    """(アイテム, マッチしたルール)のリストをDiscordに通知する。上限超過分は件数だけ知らせる。"""
+    if not matched:
         return 0
     if not webhook_url:
-        print("[warn] DISCORD_WEBHOOK_URL未設定のため通知をスキップ({}件)".format(len(items)))
+        print("[warn] DISCORD_WEBHOOK_URL未設定のため通知をスキップ({}件)".format(len(matched)))
         return 0
 
-    embeds = [_to_embed(item) for item in items[:MAX_EMBEDS]]
+    embeds = [_to_embed(item, rule) for item, rule in matched[:MAX_EMBEDS]]
     payload = {"embeds": embeds}
-    rest = len(items) - MAX_EMBEDS
+    rest = len(matched) - MAX_EMBEDS
     if rest > 0:
         payload["content"] = "ほか{}件の新着があります(タイムラインで確認)".format(rest)
 
@@ -75,11 +75,15 @@ def send_discord(items, webhook_url):
     if res.status_code not in (200, 204):
         raise RuntimeError("Discord通知に失敗: HTTP {} {}".format(res.status_code, res.text[:200]))
     time.sleep(1)  # 連続実行時のレート制限対策
-    return len(items)
+    return len(matched)
 
 
-def _to_embed(item):
+def _to_embed(item, rule=None):
     emoji, label, color = _CATEGORY_LABEL.get(item.get("category"), ("\U0001F4C4", "開示", 0x757575))
+    if rule:
+        emoji = rule.get("emoji", emoji)
+        label = rule.get("label", label)
+        color = rule.get("color", color)
     company = item.get("company")
     code = item.get("code")
     if company and code:
