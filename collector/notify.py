@@ -26,22 +26,35 @@ def load_rules(path=RULES_PATH):
     return config.get("rules") or []
 
 
-def match_rules(item, rules):
-    """アイテムがいずれかのルールにマッチするか。"""
+def find_matching_rule(item, rules):
+    """アイテムに最初にマッチしたルールを返す。どれにもマッチしなければNone。"""
     for rule in rules:
-        cond = rule.get("match") or {}
-        categories = cond.get("category")
-        if categories and item.get("category") not in categories:
-            continue
-        title = item.get("title") or ""
-        contains = cond.get("title_contains")
-        if contains and not any(word in title for word in contains):
-            continue
-        not_contains = cond.get("title_not_contains")
-        if not_contains and any(word in title for word in not_contains):
-            continue
-        return True
-    return False
+        if _match_one(item, rule.get("match") or {}):
+            return rule
+    return None
+
+
+def _match_one(item, cond):
+    categories = cond.get("category")
+    if categories and item.get("category") not in categories:
+        return False
+    title = item.get("title") or ""
+    contains = cond.get("title_contains")
+    if contains and not any(word in title for word in contains):
+        return False
+    not_contains = cond.get("title_not_contains")
+    if not_contains and any(word in title for word in not_contains):
+        return False
+    # 数値条件: 保有割合が取れていない書類(None)は不成立=通知しない(フェイルセーフ)
+    if "prev_ratio_min" in cond:
+        prev = item.get("prev_ratio")
+        if prev is None or prev < cond["prev_ratio_min"]:
+            return False
+    if "ratio_below" in cond:
+        ratio = item.get("ratio")
+        if ratio is None or ratio >= cond["ratio_below"]:
+            return False
+    return True
 
 
 def send_discord(items, webhook_url):
