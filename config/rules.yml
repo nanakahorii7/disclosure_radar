@@ -1,12 +1,24 @@
 # Discord通知ルール。新着アイテムがいずれかのルールにマッチしたら通知する。
 # ※ 収集自体は全件(変更報告書・訂正含む)行われ、タイムラインには全部残る。ここで絞るのは通知だけ。
 #
-# match の条件:
+# match の条件(すべてAND。ratio/prev_ratioが取れていない書類は数値条件を満たさない=通知しない):
 #   category:           このリストのいずれかに一致(large_holding / change_report / buyback / tob / news)
 #   title_contains:     タイトルにこのリストのいずれかの文字列を含む(省略可)
 #   title_not_contains: タイトルにこのリストの文字列を含む場合は除外(省略可)
+#   prev_ratio_min:     前回の株券等保有割合がこの値以上(省略可)
+#   ratio_below:        今回の株券等保有割合がこの値未満(省略可)
+# ルールの表示設定(省略時はカテゴリ既定): label / emoji / color
 rules:
   - name: 新規の大量保有報告書(5%超え)のみ通知
     match:
       category: [large_holding]
       title_not_contains: [訂正]
+  - name: 大口の売り抜け(5%割れ)
+    label: 売り抜け
+    emoji: "📉"
+    color: 0xD32F2F
+    match:
+      category: [change_report]
+      title_not_contains: [訂正]
+      prev_ratio_min: 5
+      ratio_below: 5
