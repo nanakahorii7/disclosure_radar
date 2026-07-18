@@ -87,7 +87,11 @@ def main():
     print("新規追記: {}件".format(len(new_items)))
 
     rules = notify.load_rules()
-    matched = [item for item in new_items if notify.match_rules(item, rules)]
+    matched = []
+    for item in new_items:
+        rule = notify.find_matching_rule(item, rules)
+        if rule is not None:
+            matched.append((item, rule))
     if args.no_notify:
         print("通知対象: {}件(--no-notifyのためスキップ)".format(len(matched)))
     else:

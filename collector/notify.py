@@ -26,35 +26,48 @@ def load_rules(path=RULES_PATH):
     return config.get("rules") or []
 
 
-def match_rules(item, rules):
-    """アイテムがいずれかのルールにマッチするか。"""
+def find_matching_rule(item, rules):
+    """アイテムに最初にマッチしたルールを返す。どれにもマッチしなければNone。"""
     for rule in rules:
-        cond = rule.get("match") or {}
-        categories = cond.get("category")
-        if categories and item.get("category") not in categories:
-            continue
-        title = item.get("title") or ""
-        contains = cond.get("title_contains")
-        if contains and not any(word in title for word in contains):
-            continue
-        not_contains = cond.get("title_not_contains")
-        if not_contains and any(word in title for word in not_contains):
-            continue
-        return True
-    return False
+        if _match_one(item, rule.get("match") or {}):
+            return rule
+    return None
 
 
-def send_discord(items, webhook_url):
-    """新着アイテムをDiscordに通知する。上限を超える分は件数だけ知らせる。"""
-    if not items:
+def _match_one(item, cond):
+    categories = cond.get("category")
+    if categories and item.get("category") not in categories:
+        return False
+    title = item.get("title") or ""
+    contains = cond.get("title_contains")
+    if contains and not any(word in title for word in contains):
+        return False
+    not_contains = cond.get("title_not_contains")
+    if not_contains and any(word in title for word in not_contains):
+        return False
+    # 数値条件: 保有割合が取れていない書類(None)は不成立=通知しない(フェイルセーフ)
+    if "prev_ratio_min" in cond:
+        prev = item.get("prev_ratio")
+        if prev is None or prev < cond["prev_ratio_min"]:
+            return False
+    if "ratio_below" in cond:
+        ratio = item.get("ratio")
+        if ratio is None or ratio >= cond["ratio_below"]:
+            return False
+    return True
+
+
+def send_discord(matched, webhook_url):
+    """(アイテム, マッチしたルール)のリストをDiscordに通知する。上限超過分は件数だけ知らせる。"""
+    if not matched:
         return 0
     if not webhook_url:
-        print("[warn] DISCORD_WEBHOOK_URL未設定のため通知をスキップ({}件)".format(len(items)))
+        print("[warn] DISCORD_WEBHOOK_URL未設定のため通知をスキップ({}件)".format(len(matched)))
         return 0
 
-    embeds = [_to_embed(item) for item in items[:MAX_EMBEDS]]
+    embeds = [_to_embed(item, rule) for item, rule in matched[:MAX_EMBEDS]]
     payload = {"embeds": embeds}
-    rest = len(items) - MAX_EMBEDS
+    rest = len(matched) - MAX_EMBEDS
     if rest > 0:
         payload["content"] = "ほか{}件の新着があります(タイムラインで確認)".format(rest)
 
@@ -62,11 +75,15 @@ def send_discord(items, webhook_url):
     if res.status_code not in (200, 204):
         raise RuntimeError("Discord通知に失敗: HTTP {} {}".format(res.status_code, res.text[:200]))
     time.sleep(1)  # 連続実行時のレート制限対策
-    return len(items)
+    return len(matched)
 
 
-def _to_embed(item):
+def _to_embed(item, rule=None):
     emoji, label, color = _CATEGORY_LABEL.get(item.get("category"), ("\U0001F4C4", "開示", 0x757575))
+    if rule:
+        emoji = rule.get("emoji", emoji)
+        label = rule.get("label", label)
+        color = rule.get("color", color)
     company = item.get("company")
     code = item.get("code")
     if company and code:
