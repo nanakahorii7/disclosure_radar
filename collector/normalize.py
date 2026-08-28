@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""共通スキーマのアイテムをJSONL(data/items/YYYY-MM.jsonl)に追記する。重複排除もここで行う。"""
+"""共通スキーマのアイテムをJSONLに追記する。重複排除もここで行う。
+
+既定の保存先は data/items/YYYY-MM.jsonl。items_dir を渡すと別ディレクトリに保存でき、
+PTSアラート(data/pts_alerts)のように系統の違うデータを分けて持てる。
+"""
 import json
 import os
 
@@ -12,12 +16,12 @@ def _month_of(item):
     return published[:7] if len(published) >= 7 else "unknown"
 
 
-def _month_path(month):
-    return os.path.join(ITEMS_DIR, "{}.jsonl".format(month))
+def _month_path(month, items_dir=None):
+    return os.path.join(items_dir or ITEMS_DIR, "{}.jsonl".format(month))
 
 
-def load_month(month):
-    path = _month_path(month)
+def load_month(month, items_dir=None):
+    path = _month_path(month, items_dir)
     if not os.path.exists(path):
         return []
     items = []
@@ -29,12 +33,12 @@ def load_month(month):
     return items
 
 
-def filter_new_items(items):
+def filter_new_items(items, items_dir=None):
     """既存JSONLに無いidのアイテムだけを(published_at昇順で)返す。書き込みはしない。"""
     months = sorted(set(_month_of(i) for i in items))
     known_ids = set()
     for month in months:
-        for existing in load_month(month):
+        for existing in load_month(month, items_dir):
             known_ids.add(existing.get("id"))
 
     new_items = []
@@ -48,15 +52,15 @@ def filter_new_items(items):
     return new_items
 
 
-def append_items(items):
+def append_items(items, items_dir=None):
     """アイテムを月別JSONLに追記する(重複チェックはfilter_new_items側で済ませておく)。"""
     if not items:
         return
-    os.makedirs(ITEMS_DIR, exist_ok=True)
+    os.makedirs(items_dir or ITEMS_DIR, exist_ok=True)
     by_month = {}
     for item in items:
         by_month.setdefault(_month_of(item), []).append(item)
     for month, month_items in by_month.items():
-        with open(_month_path(month), "a", encoding="utf-8") as f:
+        with open(_month_path(month, items_dir), "a", encoding="utf-8") as f:
             for item in month_items:
                 f.write(json.dumps(item, ensure_ascii=False) + "\n")

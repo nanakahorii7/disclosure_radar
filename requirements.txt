@@ -1,3 +1,4 @@
 requests>=2.25,<3
 urllib3<2
 PyYAML>=5.4,<7
+beautifulsoup4>=4.9,<5
