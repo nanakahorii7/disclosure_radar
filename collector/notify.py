@@ -17,6 +17,7 @@ _CATEGORY_LABEL = {
     "buyback": ("\U0001F4B0", "自社株買い", 0x43A047),             # 💰 緑
     "tob": ("\U0001F4E3", "TOB", 0xE53935),                        # 📣 赤
     "news": ("\U0001F4F0", "ニュース", 0x757575),                  # 📰 灰
+    "ir_pts": ("\U0001F680", "引け後IR×PTS上昇", 0xFF6D00),        # 🚀 橙
 }
 
 
@@ -112,3 +113,66 @@ def _to_embed(item, rule=None):
         "description": "\n".join(lines)[:2000],
         "color": color,
     }
+
+
+def _format_price(value):
+    """株価の表示。PTSは209.6のような小数もあるので、整数なら小数点を出さない。"""
+    if value is None:
+        return "-"
+    if float(value) == int(value):
+        return "{:,}".format(int(value))
+    return "{:,.1f}".format(value)
+
+
+def _to_pts_embed(alert, max_ir=3):
+    """引け後IR×PTS上昇のアラートをDiscordのembedにする。"""
+    emoji, label, color = _CATEGORY_LABEL["ir_pts"]
+    pts = alert.get("pts") or {}
+    company = alert.get("company") or (pts.get("name") or "銘柄不明")
+    code = alert.get("code") or "----"
+
+    lines = [
+        "PTS {}円 (**{:+.2f}%** / 東証終値 {}円)".format(
+            _format_price(pts.get("pts_price")), pts.get("rate") or 0.0,
+            _format_price(pts.get("close"))),
+        "売買代金 {:,}万円 ・ 出来高 {:,}株".format(
+            int((pts.get("turnover") or 0) / 10000), pts.get("volume") or 0),
+    ]
+    irs = alert.get("irs") or []
+    for ir in irs[:max_ir]:
+        published = ir.get("published_at") or ""
+        lines.append("{} {}".format(published[11:16] or "--:--", ir.get("title") or ""))
+    rest = len(irs) - max_ir
+    if rest > 0:
+        lines.append("…ほか{}件の開示".format(rest))
+
+    return {
+        "title": "{} {} | [{}] {}".format(emoji, label, code, company)[:250],
+        "url": alert.get("url"),
+        "description": "\n".join(lines)[:2000],
+        "color": color,
+    }
+
+
+def send_pts_alerts(alerts, webhook_url, max_embeds=MAX_EMBEDS, max_ir=3):
+    """PTSアラートをDiscordに送る。送信できた件数を返す。
+
+    既存の send_discord とは別関数にしてある(大量保有通知の表示を変えないため)。
+    """
+    if not alerts:
+        return 0
+    if not webhook_url:
+        print("[warn] Discord Webhook URL未設定のため通知をスキップ({}件)".format(len(alerts)))
+        return 0
+
+    embeds = [_to_pts_embed(a, max_ir) for a in alerts[:max_embeds]]
+    payload = {"embeds": embeds}
+    rest = len(alerts) - max_embeds
+    if rest > 0:
+        payload["content"] = "ほか{}件の該当銘柄があります".format(rest)
+
+    res = requests.post(webhook_url, json=payload, timeout=30)
+    if res.status_code not in (200, 204):
+        raise RuntimeError("Discord通知に失敗: HTTP {} {}".format(res.status_code, res.text[:200]))
+    time.sleep(1)  # 連続実行時のレート制限対策
+    return len(alerts)

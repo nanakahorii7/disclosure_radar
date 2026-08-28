@@ -17,4 +17,7 @@
 - `data/items/*.jsonl` はGitHub Actionsがcommitする。**ローカル作業の前に必ず `git pull`**
 - 収集のローカル実行: `.venv/bin/python -m collector.run`(手動確認・過去日の穴埋め用)
 - 通知を出したくないテストは `--no-notify` を付ける
-- TDnet・Google Alerts取り込み(フェーズ3)、閲覧UI(フェーズ2)は未実装。フェーズ計画はDESIGN.md §11
+- 引け後IR×PTS上昇の通知は別パイプライン: `.venv/bin/python -m collector.pts_run`
+  (設計書 `docs/設計書_引け後IR_PTS通知.md`、設定 `config/pts.yml`、Actions `.github/workflows/pts.yml`)。
+  **株探のスクレイピングを含むので `Crawl-delay: 3` を守り、User-Agentを必ず付ける**
+- Google Alerts取り込み、閲覧UI(フェーズ2)は未実装。フェーズ計画はDESIGN.md §11

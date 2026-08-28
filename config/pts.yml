@@ -1,0 +1,16 @@
+# 引け後IR×PTS上昇 通知の設定(設計書: docs/設計書_引け後IR_PTS通知.md)
+pts:
+  ir_from: "15:30"              # 引け後の開始時刻(JST)。東証の大引けが15:30
+  collect_min_rate: 1.0         # スナップショットに残す上昇率の下限(%)
+  notify_min_rate: 3.0          # 通知する上昇率の下限(%)
+  notify_min_turnover: 1000000  # 通知する売買代金の下限(円)。夜間PTSは板が薄いため必須
+  max_pages: 10                 # 株探ランキングの最大取得ページ数(1ページ15件)
+  page_interval_sec: 3          # ページ間のsleep(robots.txt の Crawl-delay: 3)
+  max_embeds: 10                # 1メッセージあたりのDiscord embed上限
+  max_ir_per_embed: 3           # 1銘柄あたりDiscordに表示するIR件数
+  exclude_title_contains:
+    - 訂正
+    - 決算補足説明資料
+    - コーポレート・ガバナンスに関する報告書
+    - 独立役員届出書
+    - 内部統制報告書
